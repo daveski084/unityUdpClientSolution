@@ -160,7 +160,7 @@ public class NetworkMan : MonoBehaviour
                 currentPlayers[player.id].GetComponent<Renderer>().material.color = new Color(player.color.R, player.color.G, player.color.B);
                 currentPlayers[player.id].name = player.id;
             }
-            initialSetofPlayers = null;
+            initialSetofPlayers.players = new Player[0];
         }
     }
 
