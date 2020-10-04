@@ -6,30 +6,36 @@ using System.Text;
 using System.Net.Sockets;
 using System.Net;
 
+/// <summary>
+/// A class that takes care of talking to our server
+/// </summary>
 public class NetworkMan : MonoBehaviour
 {
-    public UdpClient udp;
-    public GameObject playerGO;
+    public UdpClient udp; // an instance of the UDP client
+    public GameObject playerGO; // our player object
 
-    public string myAddress;
-    public Dictionary<string,GameObject> currentPlayers;
-    public List<string> newPlayers, droppedPlayers;
-    public GameState lastestGameState;
-    public ListOfPlayers initialSetofPlayers;
+    public string myAddress; // my address = (IP, PORT)
+    public Dictionary<string,GameObject> currentPlayers; // A list of currently connected players
+    public List<string> newPlayers, droppedPlayers; // a list of new players, and a list of dropped players
+    public GameState lastestGameState; // the last game state received from server
+    public ListOfPlayers initialSetofPlayers; // initial set of players to spawn
     
-    public MessageType latestMessage;
+    public MessageType latestMessage; // the last message received from the server
 
 
     // Start is called before the first frame update
     void Start()
     {
+        // Initialize variables
         newPlayers = new List<string>();
         droppedPlayers = new List<string>();
         currentPlayers = new Dictionary<string, GameObject>();
         initialSetofPlayers = new ListOfPlayers();
-
+        // Connect to the client.
+        // All this is explained in Week 1-4 slides
         udp = new UdpClient();
-        udp.Connect("52.15.219.197",12345);
+        Debug.Log("Connecting...");
+        udp.Connect("localhost",12345);
         Byte[] sendBytes = Encoding.ASCII.GetBytes("connect");
         udp.Send(sendBytes, sendBytes.Length);
         udp.BeginReceive(new AsyncCallback(OnReceived), udp);
@@ -41,17 +47,25 @@ public class NetworkMan : MonoBehaviour
         udp.Dispose();
     }
 
+    /// <summary>
+    /// A structure that replicates our server color dictionary
+    /// </summary>
     [Serializable]
         public struct receivedColor{
             public float R;
             public float G;
             public float B;
         }
+
+    /// <summary>
+    /// A structure that replicates our player dictionary on server
+    /// </summary>
     [Serializable]
     public class Player{
         public string id;
         public receivedColor color;        
     }
+
 
     [Serializable]
     public class ListOfPlayers{
@@ -65,6 +79,10 @@ public class NetworkMan : MonoBehaviour
     public class ListOfDroppedPlayers{
         public string[] droppedPlayers;
     }
+
+    /// <summary>
+    /// A structure that replicates our game state dictionary on server
+    /// </summary>
     [Serializable]
     public class GameState
     {
@@ -72,16 +90,23 @@ public class NetworkMan : MonoBehaviour
         public Player[] players;
     }
 
+    /// <summary>
+    /// A structure that replicates the mesage dictionary on our server
+    /// </summary>
     [Serializable]
     public class MessageType{
         public commands cmd;
     }
+
+    /// <summary>
+    /// Ordererd enums for our cmd values
+    /// </summary>
     public enum commands{
-        PLAYER_CONNECTED,
-        GAME_UPDATE,
-        PLAYER_DISCONNECTED,
-        CONNECTION_APPROVED,
-        LIST_OF_PLAYERS,
+        PLAYER_CONNECTED,       //0
+        GAME_UPDATE,            // 1
+        PLAYER_DISCONNECTED,    // 2
+        CONNECTION_APPROVED,    // 3
+        LIST_OF_PLAYERS,        // 4
     };
     
     void OnReceived(IAsyncResult result){
