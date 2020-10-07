@@ -1,4 +1,25 @@
-﻿using System.Collections;
+﻿/***********************************************************************;
+* Project           : udpclient-server Assignment 1
+*
+* Program name      : "NetworkMan.cs"
+*
+* Author            : Iansmathew
+* 
+* Student Number    : 101187910
+*
+* Date created      : 20/10/03
+*
+* Description       : Connect with EC2 server and relay player position data.
+*
+* Last modified     : 20/10/07
+*
+* Revision History  :
+*
+*Date        Author Ref    Revision (Date in YYYYMMDD format) 
+*20/10/07    David Gasinec        Edited Script 
+*
+|**********************************************************************/
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
@@ -6,9 +27,7 @@ using System.Text;
 using System.Net.Sockets;
 using System.Net;
 
-/// <summary>
-/// A class that takes care of talking to our server
-/// </summary>
+
 public class NetworkMan : MonoBehaviour
 {
     public UdpClient udp; // an instance of the UDP client
@@ -39,8 +58,8 @@ public class NetworkMan : MonoBehaviour
         Byte[] sendBytes = Encoding.ASCII.GetBytes("connect");
         udp.Send(sendBytes, sendBytes.Length);
         udp.BeginReceive(new AsyncCallback(OnReceived), udp);
-
         InvokeRepeating("HeartBeat", 1, 1);
+        InvokeRepeating("PlayerPositionUpdate", 1, 0.1f);
     }
 
     void OnDestroy(){
@@ -49,21 +68,24 @@ public class NetworkMan : MonoBehaviour
 
     /// <summary>
     /// A structure that replicates our server color dictionary
+    /// // updated to use XYZ.
     /// </summary>
     [Serializable]
-        public struct receivedColor{
-            public float R;
-            public float G;
-            public float B;
+        public struct Position
+        {
+            public float X;
+            public float Y;
+            public float Z;
         }
 
     /// <summary>
     /// A structure that replicates our player dictionary on server
     /// </summary>
     [Serializable]
-    public class Player{
+    public class Player
+    {
         public string id;
-        public receivedColor color;        
+        public Position position;        
     }
 
 
@@ -75,8 +97,10 @@ public class NetworkMan : MonoBehaviour
             players = new Player[0];
         }
     }
+
     [Serializable]
-    public class ListOfDroppedPlayers{
+    public class ListOfDroppedPlayers
+    {
         public string[] droppedPlayers;
     }
 
@@ -89,6 +113,16 @@ public class NetworkMan : MonoBehaviour
         public int pktID;
         public Player[] players;
     }
+
+    [Serializable]
+    public class PositionUpdate
+    {
+        public commands cmd;
+        public Position position;
+
+    }
+
+
 
     /// <summary>
     /// A structure that replicates the mesage dictionary on our server
@@ -107,6 +141,7 @@ public class NetworkMan : MonoBehaviour
         PLAYER_DISCONNECTED,    // 2
         CONNECTION_APPROVED,    // 3
         LIST_OF_PLAYERS,        // 4
+        POSITION_UPDATE
     };
     
     void OnReceived(IAsyncResult result){
@@ -169,20 +204,23 @@ public class NetworkMan : MonoBehaviour
     }
 
     void SpawnPlayers(){
-        if (newPlayers.Count > 0){
-            foreach (string playerID in newPlayers){
+        if (newPlayers.Count > 0)
+        {
+            foreach (string playerID in newPlayers)
+            {
                 currentPlayers.Add(playerID,Instantiate(playerGO, new Vector3(0,0,0),Quaternion.identity));
                 currentPlayers[playerID].name = playerID;
             }
             newPlayers.Clear();
         }
-        if (initialSetofPlayers.players.Length > 0){
+        if (initialSetofPlayers.players.Length > 0)
+        {
             Debug.Log(initialSetofPlayers);
             foreach (Player player in initialSetofPlayers.players){
                 if (player.id == myAddress)
                     continue;
                 currentPlayers.Add(player.id, Instantiate(playerGO, new Vector3(0,0,0), Quaternion.identity));
-                currentPlayers[player.id].GetComponent<Renderer>().material.color = new Color(player.color.R, player.color.G, player.color.B);
+                currentPlayers[player.id].transform.position = new Vector3(player.position.X, player.position.Y, player.position.Z);
                 currentPlayers[player.id].name = player.id;
             }
             initialSetofPlayers.players = new Player[0];
@@ -190,10 +228,12 @@ public class NetworkMan : MonoBehaviour
     }
 
     void UpdatePlayers(){
-        if (lastestGameState.players.Length >0){
-            foreach (NetworkMan.Player player in lastestGameState.players){
+        if (lastestGameState.players.Length >0)
+        {
+            foreach (NetworkMan.Player player in lastestGameState.players)
+            {
                 string playerID = player.id;
-                currentPlayers[player.id].GetComponent<Renderer>().material.color = new Color(player.color.R,player.color.G,player.color.B);
+                currentPlayers[player.id].transform.position = new Vector3(player.position.X, player.position.Y, player.position.Z);
             }
             lastestGameState.players = new Player[0];
         }
@@ -213,6 +253,17 @@ public class NetworkMan : MonoBehaviour
     
     void HeartBeat(){
         Byte[] sendBytes = Encoding.ASCII.GetBytes("heartbeat");
+        udp.Send(sendBytes, sendBytes.Length);
+    }
+
+    void PlayerPositionUpdate()
+    {
+        PositionUpdate playerPosition = new PositionUpdate();
+        playerPosition.cmd = commands.POSITION_UPDATE;
+        playerPosition.position.X = currentPlayers[myAddress].transform.position.x;
+        playerPosition.position.Y = currentPlayers[myAddress].transform.position.y;
+        playerPosition.position.Z = currentPlayers[myAddress].transform.position.z;
+        Byte[] sendBytes = Encoding.ASCII.GetBytes(JsonUtility.ToJson(playerPosition));
         udp.Send(sendBytes, sendBytes.Length);
     }
 
